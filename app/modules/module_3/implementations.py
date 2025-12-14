@@ -8,3 +8,4 @@ class Base3SubClass1(BaseClass3):
 class Base3SubClass2(BaseClass3):
     def method3(self):
         print(f"Sinif Attribute: {self.base3Attribute}")
+
