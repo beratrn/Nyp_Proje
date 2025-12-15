@@ -34,4 +34,40 @@ class BillingBase(ABC):
         if len(patient_id.strip()) == 0:
             raise ValueError("Hasta ID'si boş bırakılamaz.")
         self.__patient_id = patient_id
- 
+        
+        # Tutar bilgisini doğrula ve ata
+        if amount is None:
+            raise ValueError("Tutar bilgisi girilmelidir.")
+        if amount < 0:
+            raise ValueError("Fatura tutarı negatif olamaz.")
+        self.__amount = float(amount)
+        
+        # Para birimi kontrolü
+        self.__currency = currency
+        
+        # İşlem durumu başlangıcı
+        self.__status = status
+        
+        # Zaman damgaları (Oluşturulma ve Güncellenme)
+        self.__created_at = datetime.now()
+        self.__updated_at = datetime.now()
+        
+        # İşlem geçmişini tutacak liste (Audit Log)
+        self.__audit_logs = []
+        
+        # İlk log kaydını oluştur
+        self._log_transaction("Fatura nesnesi başarıyla oluşturuldu.")
+        self._log_transaction(f"Başlangıç Tutarı: {amount} {currency}")
+
+    # Fatura ID bilgisini okuyan kapsüllenmiş özellik
+    @property
+    def invoice_id(self):
+        """Faturanın benzersiz kimlik numarasını döndürür."""
+        return self.__invoice_id
+
+    # Hasta ID bilgisini okuyan kapsüllenmiş özellik
+    @property
+    def patient_id(self):
+        """Faturanın ait olduğu hastanın ID'sini döndürür."""
+        return self.__patient_id
+    
