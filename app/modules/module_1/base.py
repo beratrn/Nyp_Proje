@@ -48,3 +48,32 @@ class VeriDogrulayici:
     @staticmethod
     def benzersiz_kimlik_olustur():
         return str(uuid.uuid4())
+# TEMEL SOYUT SINIF (ABSTRACT BASE CLASS)
+class TemelModel(ABC):
+    """
+    Tüm sistem nesnelerinin (Doktor, Hasta, Personel vb.) türetileceği 
+    ana çekirdek sınıf.
+    """
+
+    def _init_(self, ad, soyad, aciklama=""):
+        # Private (Gizli) Değişken Tanımları
+        self._id = VeriDogrulayici.benzersiz_kimlik_olustur()
+        self._olusturma_zamani = datetime.datetime.now()
+        self._guncelleme_zamani = datetime.datetime.now()
+        self._aktif_mi = True
+        self._silindi_mi = False
+        self._ad = ""
+        self._soyad = ""
+        self._aciklama = ""
+        self._ozellikler = {}
+        self._loglar = []
+
+        # Setterlar üzerinden güvenli atama
+        self.ad = ad
+        self.soyad = soyad
+        self.aciklama = aciklama
+        
+        # Başlangıç logu
+        self.log_ekle("Nesne başlatıldı.")
+
+
