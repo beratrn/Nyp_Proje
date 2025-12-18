@@ -328,3 +328,131 @@ class BillingBase(ABC):
         self.__total_amount = after_discount + self.__tax_amount + self.__late_fee
         self.__remaining_amount = self.__total_amount - self.__paid_amount
     
+    def add_payment(self, amount: Decimal, transaction_id: str) -> None:
+        """Ödeme ekleyen metod"""
+        if amount <= 0:
+            raise ValueError("Ödeme tutarı pozitif olmalıdır")
+        if amount > self.__remaining_amount:
+            raise ValueError("Ödeme tutarı kalan tutardan fazla olamaz")
+        self.__paid_amount += amount
+        self.__remaining_amount -= amount
+        self.__transaction_id = transaction_id
+        if self.__remaining_amount == 0:
+            self.__status = PaymentStatus.COMPLETED
+            self.__payment_date = datetime.now()
+        elif self.__paid_amount > 0:
+            self.__status = PaymentStatus.PARTIALLY_PAID
+        self.__updated_at = datetime.now()
+    
+    def add_payment_note(self, note: str) -> None:
+        """Ödeme notu ekleyen metod"""
+        if note and note.strip():
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self.__payment_notes.append(f"[{timestamp}] {note.strip()}")
+            self.__updated_at = datetime.now()
+    
+    def process_refund(self, amount: Decimal, reason: str) -> bool:
+        """İade işlemi yapan metod"""
+        if amount <= 0:
+            raise ValueError("İade tutarı pozitif olmalıdır")
+        if amount > self.__paid_amount:
+            raise ValueError("İade tutarı ödenen tutardan fazla olamaz")
+        self.__refund_amount += amount
+        self.__paid_amount -= amount
+        self.__remaining_amount += amount
+        self.__status = PaymentStatus.REFUNDED
+        self.add_payment_note(f"İade: {amount} {self.__currency.value} - Sebep: {reason}")
+        self.__updated_at = datetime.now()
+        return True
+    
+    def calculate_late_fee(self, daily_late_fee_rate: Decimal = Decimal("0.001")) -> None:
+        """Gecikme ücreti hesaplayan metod"""
+        if self.__due_date and datetime.now() > self.__due_date:
+            if self.__status not in [PaymentStatus.COMPLETED, PaymentStatus.CANCELLED]:
+                days_overdue = (datetime.now() - self.__due_date).days
+                if days_overdue > 0:
+                    self.__late_fee = (self.__total_amount * daily_late_fee_rate * days_overdue).quantize(Decimal("0.01"))
+                    self._recalculate_total()
+                    self.__status = PaymentStatus.OVERDUE
+                    self.__updated_at = datetime.now()
+    
+    def cancel_invoice(self, reason: str) -> None:
+        """Faturayı iptal eden metod"""
+        self.__status = PaymentStatus.CANCELLED
+        self.add_payment_note(f"Fatura iptal edildi: {reason}")
+        self.__updated_at = datetime.now()
+    
+    def is_overdue(self) -> bool:
+        """Faturanın vadesi geçmiş mi kontrol eden metod"""
+        if self.__due_date and self.__status not in [PaymentStatus.COMPLETED, PaymentStatus.CANCELLED]:
+            return datetime.now() > self.__due_date
+        return False
+    
+    def is_paid(self) -> bool:
+        """Faturanın ödenip ödenmediğini kontrol eden metod"""
+        return self.__status == PaymentStatus.COMPLETED
+    
+    def get_payment_percentage(self) -> Decimal:
+        """Ödeme yüzdesini hesaplayan metod"""
+        if self.__total_amount == 0:
+            return Decimal("0.00")
+        return ((self.__paid_amount / self.__total_amount) * 100).quantize(Decimal("0.01"))
+    
+    def get_invoice_summary(self) -> Dict[str, Any]:
+        """Fatura özet bilgilerini döndüren metod"""
+        return {
+            "invoice_id": self.__invoice_id,
+            "patient_name": self.__patient_name,
+            "invoice_type": self.__invoice_type.value,
+            "amount": float(self.__amount),
+            "tax": float(self.__tax_amount),
+            "discount": float(self.__discount_amount),
+            "late_fee": float(self.__late_fee),
+            "total": float(self.__total_amount),
+            "paid": float(self.__paid_amount),
+            "remaining": float(self.__remaining_amount),
+            "currency": self.__currency.value,
+            "status": self.__status.value,
+            "payment_percentage": float(self.get_payment_percentage()),
+            "is_overdue": self.is_overdue(),
+            "created_at": self.__created_at.strftime("%Y-%m-%d %H:%M:%S")
+        }
+    
+    @abstractmethod
+    def calculate_final_amount(self) -> Decimal:
+        """Nihai tutarı hesaplayan abstract metod"""
+        pass
+    
+    @abstractmethod
+    def validate_payment_method(self) -> bool:
+        """Ödeme yöntemini doğrulayan abstract metod"""
+        pass
+    
+    @abstractmethod
+    def get_payment_instructions(self) -> str:
+        """Ödeme talimatlarını döndüren abstract metod"""
+        pass
+    
+    @abstractmethod
+    def requires_authorization(self) -> bool:
+        """Yetkilendirme gerekip gerekmediğini belirten abstract metod"""
+        pass
+    
+    def __str__(self) -> str:
+        """String representation metodu"""
+        return f"Invoice({self.__invoice_id}, {self.__patient_name}, {self.__total_amount} {self.__currency.value})"
+    
+    def __repr__(self) -> str:
+        """Detailed representation metodu"""
+        return (f"Invoice(id={self.__invoice_id}, patient={self.__patient_name}, "
+                f"total={self.__total_amount}, status={self.__status.value})")
+    
+    def __eq__(self, other) -> bool:
+        """Eşitlik kontrolü metodu"""
+        if not isinstance(other, BillingBase):
+            return False
+        return self.__invoice_id == other.__invoice_id
+    
+    def __hash__(self) -> int:
+        """Hash metodu"""
+        return hash(self.__invoice_id)
