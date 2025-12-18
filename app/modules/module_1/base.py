@@ -75,9 +75,8 @@ class TemelModel(ABC):
         
         # Başlangıç logu
         self.log_ekle("Nesne başlatıldı.")
-         # -------------------------------------------------------------------------
+      
     # PROPERTY YÖNETİMİ (GETTERS & SETTERS)
-    # -------------------------------------------------------------------------
 
     @property
     def id(self):
@@ -153,9 +152,7 @@ class TemelModel(ABC):
     def silindi_mi(self):
         return self._silindi_mi
 
-    # -------------------------------------------------------------------------
     # SİSTEM METOTLARI
-    # -------------------------------------------------------------------------
 
     def _guncelleme_tetikle(self):
         """Herhangi bir veri değiştiğinde zaman damgasını günceller."""
@@ -201,9 +198,7 @@ class TemelModel(ABC):
             del self._ozellikler[anahtar]
             self._guncelleme_tetikle()
 
-    # -------------------------------------------------------------------------
     # LOGLAMA VE İZLEME
-    # -------------------------------------------------------------------------
 
     def log_ekle(self, mesaj):
         """Nesne üzerindeki değişiklikleri hafızada tutar."""
@@ -214,9 +209,7 @@ class TemelModel(ABC):
     def loglari_goster(self):
         return "\n".join(self._loglar)
 
-    # -------------------------------------------------------------------------
     # SERİLEŞTİRME VE ÇIKTI METOTLARI
-    # -------------------------------------------------------------------------
 
     def sozluge_cevir(self):
         """Nesneyi Python dictionary formatına çevirir."""
@@ -256,9 +249,7 @@ class TemelModel(ABC):
         
         return yeni_nesne
 
-    # -------------------------------------------------------------------------
     # PYTHON SİHİRLİ METOTLARI (MAGIC METHODS)
-    # -------------------------------------------------------------------------
 
     def _str_(self):
         durum = "Aktif" if self._aktif_mi else "Pasif"
@@ -291,9 +282,7 @@ class TemelModel(ABC):
         """
         pass
 
-# -----------------------------------------------------------------------------
 # TEST VE ÇALIŞTIRMA BLOĞU
-# -----------------------------------------------------------------------------
 
 if __name__ == "_main_":
     # Bu blok sadece modül doğrudan çalıştırıldığında test amaçlı çalışır.
