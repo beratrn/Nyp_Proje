@@ -8,9 +8,7 @@ from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, field
 from base import Patient, PatientStatus, Gender, BloodType
 
-
 # ENTITY CLASSES - Veri Modelleri
-
 @dataclass
 class VitalSigns:
     """
@@ -200,3 +198,136 @@ class Inpatient(Patient):
         Returns:
             bool: Özel bakım gerekiyorsa True
         """
+         # ICU hastası her zaman özel bakım gerektirir
+        if self.bed_assignment and self.bed_assignment.is_icu:
+            return True
+        
+        # 65 yaş üstü özel bakım gerektirir
+        if self.age >= 65:
+            return True
+        
+        # Ameliyat olan hasta özel bakım gerektirir
+        if self.requires_surgery:
+            return True
+        
+        return False
+    
+    def add_vital_signs(self, vital_signs: VitalSigns) -> None:
+        """
+        Hayati bulgu kaydı ekler.
+        
+        Args:
+            vital_signs: Eklenecek hayati bulgular
+        """
+        self.vital_signs_history.append(vital_signs)
+        self._add_note(f"Vital signs recorded: {vital_signs}")
+        
+        if vital_signs.is_critical():
+            self._add_note("WARNING: Critical vital signs detected!")
+    
+    def schedule_surgery(self, surgery_date: datetime) -> None:
+        """
+        Ameliyat tarihi planlar.
+        
+        Args:
+            surgery_date: Ameliyat tarihi
+        """
+        self.requires_surgery = True
+        self.surgery_date = surgery_date
+        self._add_note(f"Surgery scheduled for {surgery_date.strftime('%Y-%m-%d %H:%M')}")
+    
+    def add_daily_care_note(self, note: str) -> None:
+        """
+        Günlük bakım notu ekler.
+        
+        Args:
+            note: Bakım notu
+        """
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        self.daily_care_notes.append(f"[{timestamp}] {note}")
+    
+    def assign_bed(self, bed_assignment: BedAssignment) -> None:
+        """
+        Yatak ataması yapar.
+        
+        Args:
+            bed_assignment: Yatak atama bilgisi
+        """
+        self.bed_assignment = bed_assignment
+        self._add_note(f"Bed assigned: {bed_assignment.get_location()}")
+    
+    @classmethod
+    def create_icu_patient(
+        cls,
+        patient_id: str,
+        name: str,
+        age: int,
+        gender: Gender,
+        diagnosis: str,
+        **kwargs
+    ) -> 'Inpatient':
+        """
+        Yoğun bakım hastası oluşturur.
+        
+        Args:
+            patient_id: Hasta ID
+            name: Hasta adı
+            age: Hasta yaşı
+            gender: Hasta cinsiyeti
+            diagnosis: Teşhis
+            **kwargs: Ek parametreler
+            
+        Returns:
+            Inpatient: ICU hastası
+        """
+        # Otomatik ICU yatak ataması
+        icu_bed = BedAssignment(
+            bed_number="ICU-001",
+            room_number="ICU",
+            ward="Intensive Care",
+            assignment_date=datetime.now(),
+            is_icu=True
+        )
+        
+        patient = cls(patient_id, name, age, gender, diagnosis, icu_bed, **kwargs)
+        patient._add_note("Patient admitted to ICU")
+        return patient
+    
+    @staticmethod
+    def estimate_recovery_days(diagnosis: str) -> int:
+        """
+        Teşhise göre tahmini iyileşme süresi hesaplar.
+        
+        Args:
+            diagnosis: Teşhis bilgisi
+            
+        Returns:
+            int: Tahmini gün sayısı
+        """
+        diagnosis_lower = diagnosis.lower()
+        
+        if "surgery" in diagnosis_lower or "operation" in diagnosis_lower:
+            return 7
+        elif "fracture" in diagnosis_lower:
+            return 14
+        elif "pneumonia" in diagnosis_lower:
+            return 10
+        elif "appendicitis" in diagnosis_lower:
+            return 5
+        else:
+            return 3  # Varsayılan
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Hasta bilgilerini dictionary'ye çevirir"""
+        data = super().to_dict()
+        data.update({
+            "type": "inpatient",
+            "diagnosis": self.diagnosis,
+            "bed_assignment": self.bed_assignment.get_location() if self.bed_assignment else None,
+            "is_icu": self.bed_assignment.is_icu if self.bed_assignment else False,
+            "requires_surgery": self.requires_surgery,
+            "surgery_date": self.surgery_date.isoformat() if self.surgery_date else None,
+            "vital_signs_count": len(self.vital_signs_history),
+            "treatment_cost": self.calculate_treatment_cost()
+        })
+        return data
