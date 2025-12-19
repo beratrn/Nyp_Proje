@@ -9,11 +9,8 @@ from decimal import Decimal
 class PaymentStatus(Enum):
     """Ödeme durumlarını temsil eden enum sınıfı"""
     PENDING = "beklemede"
-    PROCESSING = "işleniyor"
     COMPLETED = "tamamlandı"
     FAILED = "başarısız"
-    REFUNDED = "iade_edildi"
-    PARTIALLY_PAID = "kısmi_ödendi"
     CANCELLED = "iptal_edildi"
     OVERDUE = "gecikmiş"
 
@@ -23,7 +20,6 @@ class Currency(Enum):
     TRY = "TL"
     USD = "USD"
     EUR = "EUR"
-    GBP = "GBP"
 
 
 class InvoiceType(Enum):
@@ -31,10 +27,6 @@ class InvoiceType(Enum):
     OUTPATIENT = "ayaktan_tedavi"
     INPATIENT = "yatan_hasta"
     EMERGENCY = "acil_servis"
-    SURGERY = "ameliyat"
-    LABORATORY = "laboratuvar"
-    PHARMACY = "eczane"
-    CONSULTATION = "konsültasyon"
 
 
 class InsuranceProvider(Enum):
@@ -42,7 +34,6 @@ class InsuranceProvider(Enum):
     SGK = "sgk"
     PRIVATE_INSURANCE = "özel_sigorta"
     SELF_PAY = "ödemeli"
-    INTERNATIONAL = "uluslararası"
 
 
 class BillingBase(ABC):
@@ -69,8 +60,6 @@ class BillingBase(ABC):
         self.__invoice_type = invoice_type
         self.__status = PaymentStatus.PENDING
         self.__created_at = datetime.now()
-        self.__updated_at = datetime.now()
-        self.__payment_date: Optional[datetime] = None
         self.__due_date: Optional[datetime] = None
         self.__tax_amount = Decimal("0.00")
         self.__discount_amount = Decimal("0.00")
@@ -80,144 +69,82 @@ class BillingBase(ABC):
         self.__items: List[Dict[str, Any]] = []
         self.__payment_notes: List[str] = []
         self.__transaction_id: Optional[str] = None
-        self.__refund_amount = Decimal("0.00")
-        self.__late_fee = Decimal("0.00")
     
     @property
     def invoice_id(self) -> str:
-        """Fatura ID'sini döndüren property"""
         return self.__invoice_id
     
     @property
     def patient_id(self) -> str:
-        """Hasta ID'sini döndüren property"""
         return self.__patient_id
     
     @property
     def patient_name(self) -> str:
-        """Hasta adını döndüren property"""
         return self.__patient_name
-    
-    @patient_name.setter
-    def patient_name(self, value: str) -> None:
-        """Hasta adını güncelleyen setter"""
-        if not value or not value.strip():
-            raise ValueError("Hasta adı boş olamaz")
-        self.__patient_name = value.strip()
-        self.__updated_at = datetime.now()
     
     @property
     def amount(self) -> Decimal:
-        """Ana tutarı döndüren property"""
         return self.__amount
-    
-    @amount.setter
-    def amount(self, value: Decimal) -> None:
-        """Ana tutarı güncelleyen setter"""
-        if value < 0:
-            raise ValueError("Tutar negatif olamaz")
-        self.__amount = value
-        self._recalculate_total()
-        self.__updated_at = datetime.now()
     
     @property
     def currency(self) -> Currency:
-        """Para birimini döndüren property"""
         return self.__currency
     
     @property
     def invoice_type(self) -> InvoiceType:
-        """Fatura tipini döndüren property"""
         return self.__invoice_type
     
     @property
     def status(self) -> PaymentStatus:
-        """Ödeme durumunu döndüren property"""
         return self.__status
     
     @status.setter
     def status(self, value: PaymentStatus) -> None:
-        """Ödeme durumunu güncelleyen setter"""
-        if not isinstance(value, PaymentStatus):
-            raise ValueError("Geçersiz ödeme durumu")
         self.__status = value
-        self.__updated_at = datetime.now()
     
     @property
     def created_at(self) -> datetime:
-        """Oluşturulma zamanını döndüren property"""
         return self.__created_at
     
     @property
-    def updated_at(self) -> datetime:
-        """Güncellenme zamanını döndüren property"""
-        return self.__updated_at
-    
-    @property
-    def payment_date(self) -> Optional[datetime]:
-        """Ödeme tarihini döndüren property"""
-        return self.__payment_date
-    
-    @property
     def due_date(self) -> Optional[datetime]:
-        """Vade tarihini döndüren property"""
         return self.__due_date
     
     @due_date.setter
     def due_date(self, value: Optional[datetime]) -> None:
-        """Vade tarihini ayarlayan setter"""
         self.__due_date = value
-        self.__updated_at = datetime.now()
     
     @property
     def tax_amount(self) -> Decimal:
-        """Vergi tutarını döndüren property"""
         return self.__tax_amount
     
     @property
     def discount_amount(self) -> Decimal:
-        """İndirim tutarını döndüren property"""
         return self.__discount_amount
     
     @property
     def total_amount(self) -> Decimal:
-        """Toplam tutarı döndüren property"""
         return self.__total_amount
     
     @property
     def paid_amount(self) -> Decimal:
-        """Ödenen tutarı döndüren property"""
         return self.__paid_amount
     
     @property
     def remaining_amount(self) -> Decimal:
-        """Kalan tutarı döndüren property"""
         return self.__remaining_amount
     
     @property
     def items(self) -> List[Dict[str, Any]]:
-        """Fatura kalemlerini döndüren property"""
         return self.__items.copy()
     
     @property
     def payment_notes(self) -> List[str]:
-        """Ödeme notlarını döndüren property"""
         return self.__payment_notes.copy()
     
     @property
     def transaction_id(self) -> Optional[str]:
-        """İşlem ID'sini döndüren property"""
         return self.__transaction_id
-    
-    @property
-    def refund_amount(self) -> Decimal:
-        """İade tutarını döndüren property"""
-        return self.__refund_amount
-    
-    @property
-    def late_fee(self) -> Decimal:
-        """Gecikme ücretini döndüren property"""
-        return self.__late_fee
     
     @classmethod
     def _generate_invoice_id(cls) -> str:
@@ -232,18 +159,6 @@ class BillingBase(ABC):
         return cls._invoice_counter
     
     @classmethod
-    def reset_counter(cls) -> None:
-        """Fatura sayacını sıfırlayan class metodu"""
-        cls._invoice_counter = 0
-    
-    @classmethod
-    def set_tax_rate(cls, rate: Decimal) -> None:
-        """Vergi oranını ayarlayan class metodu"""
-        if rate < 0 or rate > 1:
-            raise ValueError("Vergi oranı 0-1 arası olmalıdır")
-        cls._tax_rate = rate
-    
-    @classmethod
     def get_tax_rate(cls) -> Decimal:
         """Vergi oranını döndüren class metodu"""
         return cls._tax_rate
@@ -254,70 +169,27 @@ class BillingBase(ABC):
         return (amount * tax_rate).quantize(Decimal("0.01"))
     
     @staticmethod
-    def convert_currency(amount: Decimal, from_currency: Currency, 
-                        to_currency: Currency, exchange_rate: Decimal) -> Decimal:
-        """Para birimi dönüşümü yapan static metod"""
-        if from_currency == to_currency:
-            return amount
-        return (amount * exchange_rate).quantize(Decimal("0.01"))
-    
-    @staticmethod
     def format_amount(amount: Decimal, currency: Currency) -> str:
         """Tutarı formatlamak için static metod"""
         return f"{amount:,.2f} {currency.value}"
     
-    @staticmethod
-    def validate_invoice_id(invoice_id: str) -> bool:
-        """Fatura ID formatını doğrulayan static metod"""
-        return invoice_id.startswith("INV") and len(invoice_id) >= 13
-    
     def add_item(self, description: str, quantity: int, unit_price: Decimal,
                 item_code: Optional[str] = None) -> None:
         """Faturaya kalem ekleyen metod"""
-        if quantity <= 0:
-            raise ValueError("Miktar pozitif olmalıdır")
-        if unit_price < 0:
-            raise ValueError("Birim fiyat negatif olamaz")
         item = {
             "item_code": item_code or f"ITEM{len(self.__items)+1:03d}",
             "description": description,
             "quantity": quantity,
             "unit_price": unit_price,
-            "total": unit_price * quantity,
-            "added_at": datetime.now()
+            "total": unit_price * quantity
         }
         self.__items.append(item)
         self._recalculate_total()
-        self.__updated_at = datetime.now()
-    
-    def remove_item(self, item_code: str) -> bool:
-        """Faturadan kalem çıkaran metod"""
-        for i, item in enumerate(self.__items):
-            if item["item_code"] == item_code:
-                self.__items.pop(i)
-                self._recalculate_total()
-                self.__updated_at = datetime.now()
-                return True
-        return False
-    
-    def apply_discount(self, discount_percentage: Decimal) -> None:
-        """İndirim uygulayan metod"""
-        if discount_percentage < 0 or discount_percentage > 100:
-            raise ValueError("İndirim yüzdesi 0-100 arası olmalıdır")
-        discount_rate = discount_percentage / Decimal("100")
-        self.__discount_amount = (self.__amount * discount_rate).quantize(Decimal("0.01"))
-        self._recalculate_total()
-        self.__updated_at = datetime.now()
     
     def apply_discount_amount(self, discount_amount: Decimal) -> None:
         """Sabit indirim tutarı uygulayan metod"""
-        if discount_amount < 0:
-            raise ValueError("İndirim tutarı negatif olamaz")
-        if discount_amount > self.__amount:
-            raise ValueError("İndirim tutarı ana tutardan fazla olamaz")
         self.__discount_amount = discount_amount
         self._recalculate_total()
-        self.__updated_at = datetime.now()
     
     def _recalculate_total(self) -> None:
         """Toplam tutarı yeniden hesaplayan private metod"""
@@ -325,62 +197,26 @@ class BillingBase(ABC):
         subtotal = self.__amount + items_total
         after_discount = subtotal - self.__discount_amount
         self.__tax_amount = self.calculate_tax(after_discount, self._tax_rate)
-        self.__total_amount = after_discount + self.__tax_amount + self.__late_fee
+        self.__total_amount = after_discount + self.__tax_amount
         self.__remaining_amount = self.__total_amount - self.__paid_amount
     
     def add_payment(self, amount: Decimal, transaction_id: str) -> None:
         """Ödeme ekleyen metod"""
-        if amount <= 0:
-            raise ValueError("Ödeme tutarı pozitif olmalıdır")
-        if amount > self.__remaining_amount:
-            raise ValueError("Ödeme tutarı kalan tutardan fazla olamaz")
         self.__paid_amount += amount
         self.__remaining_amount -= amount
         self.__transaction_id = transaction_id
         if self.__remaining_amount == 0:
             self.__status = PaymentStatus.COMPLETED
-            self.__payment_date = datetime.now()
-        elif self.__paid_amount > 0:
-            self.__status = PaymentStatus.PARTIALLY_PAID
-        self.__updated_at = datetime.now()
     
     def add_payment_note(self, note: str) -> None:
         """Ödeme notu ekleyen metod"""
-        if note and note.strip():
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            self.__payment_notes.append(f"[{timestamp}] {note.strip()}")
-            self.__updated_at = datetime.now()
-    
-    def process_refund(self, amount: Decimal, reason: str) -> bool:
-        """İade işlemi yapan metod"""
-        if amount <= 0:
-            raise ValueError("İade tutarı pozitif olmalıdır")
-        if amount > self.__paid_amount:
-            raise ValueError("İade tutarı ödenen tutardan fazla olamaz")
-        self.__refund_amount += amount
-        self.__paid_amount -= amount
-        self.__remaining_amount += amount
-        self.__status = PaymentStatus.REFUNDED
-        self.add_payment_note(f"İade: {amount} {self.__currency.value} - Sebep: {reason}")
-        self.__updated_at = datetime.now()
-        return True
-    
-    def calculate_late_fee(self, daily_late_fee_rate: Decimal = Decimal("0.001")) -> None:
-        """Gecikme ücreti hesaplayan metod"""
-        if self.__due_date and datetime.now() > self.__due_date:
-            if self.__status not in [PaymentStatus.COMPLETED, PaymentStatus.CANCELLED]:
-                days_overdue = (datetime.now() - self.__due_date).days
-                if days_overdue > 0:
-                    self.__late_fee = (self.__total_amount * daily_late_fee_rate * days_overdue).quantize(Decimal("0.01"))
-                    self._recalculate_total()
-                    self.__status = PaymentStatus.OVERDUE
-                    self.__updated_at = datetime.now()
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.__payment_notes.append(f"[{timestamp}] {note.strip()}")
     
     def cancel_invoice(self, reason: str) -> None:
         """Faturayı iptal eden metod"""
         self.__status = PaymentStatus.CANCELLED
         self.add_payment_note(f"Fatura iptal edildi: {reason}")
-        self.__updated_at = datetime.now()
     
     def is_overdue(self) -> bool:
         """Faturanın vadesi geçmiş mi kontrol eden metod"""
@@ -397,26 +233,6 @@ class BillingBase(ABC):
         if self.__total_amount == 0:
             return Decimal("0.00")
         return ((self.__paid_amount / self.__total_amount) * 100).quantize(Decimal("0.01"))
-    
-    def get_invoice_summary(self) -> Dict[str, Any]:
-        """Fatura özet bilgilerini döndüren metod"""
-        return {
-            "invoice_id": self.__invoice_id,
-            "patient_name": self.__patient_name,
-            "invoice_type": self.__invoice_type.value,
-            "amount": float(self.__amount),
-            "tax": float(self.__tax_amount),
-            "discount": float(self.__discount_amount),
-            "late_fee": float(self.__late_fee),
-            "total": float(self.__total_amount),
-            "paid": float(self.__paid_amount),
-            "remaining": float(self.__remaining_amount),
-            "currency": self.__currency.value,
-            "status": self.__status.value,
-            "payment_percentage": float(self.get_payment_percentage()),
-            "is_overdue": self.is_overdue(),
-            "created_at": self.__created_at.strftime("%Y-%m-%d %H:%M:%S")
-        }
     
     @abstractmethod
     def calculate_final_amount(self) -> Decimal:
@@ -439,20 +255,4 @@ class BillingBase(ABC):
         pass
     
     def __str__(self) -> str:
-        """String representation metodu"""
         return f"Invoice({self.__invoice_id}, {self.__patient_name}, {self.__total_amount} {self.__currency.value})"
-    
-    def __repr__(self) -> str:
-        """Detailed representation metodu"""
-        return (f"Invoice(id={self.__invoice_id}, patient={self.__patient_name}, "
-                f"total={self.__total_amount}, status={self.__status.value})")
-    
-    def __eq__(self, other) -> bool:
-        """Eşitlik kontrolü metodu"""
-        if not isinstance(other, BillingBase):
-            return False
-        return self.__invoice_id == other.__invoice_id
-    
-    def __hash__(self) -> int:
-        """Hash metodu"""
-        return hash(self.__invoice_id)
