@@ -797,3 +797,312 @@ class EmergencyPatient(Patient):
         })
         return data
 # SERVICE LAYER - İş Mantığı Katmanı
+class PatientRegistrationService:
+    """
+    Hasta kayıt işlemlerini yöneten servis sınıfı.
+    Bu sınıf hasta oluşturma, doğrulama ve kayıt işlemlerinden sorumludur.
+    """
+    
+    def __init__(self, repository):
+        """
+        Service constructor
+        
+        Args:
+            repository: Hasta repository instance'ı
+        """
+        self.repository = repository
+        self._registration_log: List[Dict[str, Any]] = []
+    
+    def register_patient(self, patient: Patient) -> bool:
+        """
+        Yeni hasta kaydeder.
+        
+        Args:
+            patient: Kaydedilecek hasta
+            
+        Returns:
+            bool: Kayıt başarılı ise True
+        """
+        # Validasyon
+        if not self._validate_patient_data(patient):
+            return False
+        
+        # Duplicate kontrolü
+        if self.repository.find_by_id(patient.id):
+            print(f"Error: Patient with ID {patient.id} already exists")
+            return False
+        
+        # Kayıt
+        success = self.repository.save(patient)
+        
+        if success:
+            self._log_registration(patient, "registered")
+        
+        return success
+    
+    def _validate_patient_data(self, patient: Patient) -> bool:
+        """
+        Hasta verilerini doğrular.
+        
+        Args:
+            patient: Doğrulanacak hasta
+            
+        Returns:
+            bool: Geçerli ise True
+        """
+        if not Patient.validate_patient_id(patient.id):
+            print(f"Invalid patient ID: {patient.id}")
+            return False
+        
+        if not Patient.validate_age(patient.age):
+            print(f"Invalid age: {patient.age}")
+            return False
+        
+        if not patient.name or len(patient.name) < 2:
+            print("Invalid name")
+            return False
+        
+        return True
+    
+    def _log_registration(self, patient: Patient, action: str) -> None:
+        """
+        Kayıt işlemini loglar.
+        
+        Args:
+            patient: İlgili hasta
+            action: Yapılan işlem
+        """
+        log_entry = {
+            "timestamp": datetime.now(),
+            "patient_id": patient.id,
+            "patient_name": patient.name,
+            "action": action,
+            "patient_type": patient.__class__.__name__
+        }
+        self._registration_log.append(log_entry)
+    
+    def get_registration_statistics(self) -> Dict[str, int]:
+        """
+        Kayıt istatistiklerini döndürür.
+        
+        Returns:
+            Dict: İstatistik bilgileri
+        """
+        total = len(self._registration_log)
+        by_type = {}
+        
+        for entry in self._registration_log:
+            patient_type = entry["patient_type"]
+            by_type[patient_type] = by_type.get(patient_type, 0) + 1
+        
+        return {
+            "total_registrations": total,
+            "by_type": by_type
+        }
+class PatientManagementService:
+    """
+    Hasta yönetim işlemlerini koordine eden ana servis sınıfı.
+    Hasta durumu güncellemeleri, taburcu işlemleri ve arama fonksiyonları.
+    """
+    
+    def __init__(self, repository):
+        """
+        Service constructor
+        
+        Args:
+            repository: Hasta repository instance'ı
+        """
+        self.repository = repository
+        self._discharge_records: List[Dict[str, Any]] = []
+    
+    def discharge_patient(self, patient_id: str, discharge_notes: str = "") -> bool:
+        """
+        Hastayı taburcu eder.
+        
+        Args:
+            patient_id: Taburcu edilecek hasta ID
+            discharge_notes: Taburcu notları
+            
+        Returns:
+            bool: İşlem başarılı ise True
+        """
+        patient = self.repository.find_by_id(patient_id)
+        
+        if not patient:
+            print(f"Patient {patient_id} not found")
+            return False
+        
+        if patient.status == PatientStatus.DISCHARGED:
+            print(f"Patient {patient_id} already discharged")
+            return False
+        
+        # Taburcu işlemi
+        patient.update_status(PatientStatus.DISCHARGED)
+        patient.add_medical_history_entry(f"Discharged: {discharge_notes}")
+        
+        # Kayıt güncelle
+        self.repository.update(patient)
+        
+        # Taburcu kaydı
+        self._record_discharge(patient, discharge_notes)
+        
+        return True
+    
+    def update_patient_status(
+        self,
+        patient_id: str,
+        new_status: PatientStatus,
+        notes: str = ""
+    ) -> bool:
+        """
+        Hasta durumunu günceller.
+        
+        Args:
+            patient_id: Hasta ID
+            new_status: Yeni durum
+            notes: Ek notlar
+            
+        Returns:
+            bool: İşlem başarılı ise True
+        """
+        patient = self.repository.find_by_id(patient_id)
+        
+        if not patient:
+            return False
+        
+        patient.update_status(new_status)
+        
+        if notes:
+            patient.add_medical_history_entry(notes)
+        
+        return self.repository.update(patient)
+    
+    def search_patients_by_name(self, name_query: str) -> List[Patient]:
+        """
+        İsme göre hasta arar.
+        
+        Args:
+            name_query: Aranacak isim
+            
+        Returns:
+            List[Patient]: Bulunan hastalar
+        """
+        all_patients = self.repository.list_all()
+        name_lower = name_query.lower()
+        
+        return [
+            p for p in all_patients
+            if name_lower in p.name.lower()
+        ]
+    
+    def get_patients_by_status(self, status: PatientStatus) -> List[Patient]:
+        """
+        Duruma göre hastaları filtreler.
+        
+        Args:
+            status: Filtrelenecek durum
+            
+        Returns:
+            List[Patient]: Filtrelenmiş hasta listesi
+        """
+        return self.repository.filter_by_status(status)
+    
+    def get_critical_patients(self) -> List[Patient]:
+        """
+        Kritik öncelikli hastaları döndürür.
+        
+        Returns:
+            List[Patient]: Kritik hastalar
+        """
+        all_patients = self.repository.list_all()
+        return [p for p in all_patients if p.get_priority_level() >= 8]
+    
+    def _record_discharge(self, patient: Patient, notes: str) -> None:
+        """
+        Taburcu kaydı oluşturur.
+        
+        Args:
+            patient: Taburcu edilen hasta
+            notes: Taburcu notları
+        """
+        record = {
+            "timestamp": datetime.now(),
+            "patient_id": patient.id,
+            "patient_name": patient.name,
+            "admission_duration_days": patient.get_admission_duration_days(),
+            "total_cost": patient.calculate_treatment_cost(),
+            "notes": notes
+        }
+        self._discharge_records.append(record)
+    
+    def get_discharge_summary(self, patient_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Hasta için taburcu özetini döndürür.
+        
+        Args:
+            patient_id: Hasta ID
+            
+        Returns:
+            Dict: Taburcu özeti veya None
+        """
+        for record in self._discharge_records:
+            if record["patient_id"] == patient_id:
+                return record
+        return None
+    
+    @classmethod
+    def calculate_bed_occupancy_rate(cls, repository) -> float:
+        """
+        Yatak doluluk oranını hesaplar.
+        
+        Args:
+            repository: Hasta repository
+            
+        Returns:
+            float: Doluluk oranı (0-100)
+        """
+        all_patients = repository.list_all()
+        inpatients = [p for p in all_patients if isinstance(p, Inpatient)]
+        active_inpatients = [
+            p for p in inpatients
+            if p.status in [PatientStatus.IN_TREATMENT, PatientStatus.ACTIVE]
+        ]
+        
+        # Varsayılan toplam yatak sayısı: 100
+        total_beds = 100
+        occupied = len(active_inpatients)
+        
+        return round((occupied / total_beds) * 100, 2)
+    
+    @staticmethod
+    def generate_patient_report(patient: Patient) -> str:
+        """
+        Hasta için detaylı rapor oluşturur.
+        
+        Args:
+            patient: Rapor oluşturulacak hasta
+            
+        Returns:
+            str: Hasta raporu
+        """
+        report_lines = [
+            "="*60,
+            f"PATIENT REPORT - {patient.name}",
+            "="*60,
+            f"ID: {patient.id}",
+            f"Age: {patient.age} ({patient.get_age_category()})",
+            f"Gender: {patient.gender.value}",
+            f"Blood Type: {patient.blood_type.value}",
+            f"Status: {patient.status.value}",
+            f"Admission Date: {patient.admission_date.strftime('%Y-%m-%d %H:%M')}",
+            f"Duration: {patient.get_admission_duration_days()} days",
+            f"Priority Level: {patient.get_priority_level()}/10",
+            f"Special Care Required: {'Yes' if patient.requires_special_care() else 'No'}",
+            f"Treatment Cost: {patient.calculate_treatment_cost():.2f} TL",
+            "",
+            f"Allergies: {', '.join(patient.allergies) if patient.allergies else 'None'}",
+            f"Current Medications: {', '.join(patient.current_medications) if patient.current_medications else 'None'}",
+            "="*60
+        ]
+        
+        return "\n".join(report_lines)
