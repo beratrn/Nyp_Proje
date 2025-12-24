@@ -1,11 +1,12 @@
 """
 Hasta Yönetim Modülü - Implementation Sınıfları
 """
+
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 import random
-from app.modules.module_1.base import Patient
+from base import Patient
 
 
 class Inpatient(Patient):

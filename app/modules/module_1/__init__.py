@@ -2,8 +2,8 @@
 Hasta Yönetim Modülü - Patient Management Module
 """
 
-from app.modules.module_1.base import Patient
-from app.modules.module_1.implementations import (
+from base import Patient
+from implementations import (
     Inpatient,
     Outpatient,
     EmergencyPatient,
@@ -13,7 +13,7 @@ from app.modules.module_1.implementations import (
     PatientService,
     NotificationService
 )
-from app.modules.module_1.repository import PatientRepository
+from repository import PatientRepository
 
 __all__ = [
     'Patient',

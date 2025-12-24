@@ -5,8 +5,8 @@ Hasta Yönetim Modülü - Repository Katmanı
 from typing import Dict, List, Optional, Callable
 from datetime import datetime
 import json
-from app.modules.module_1.base import Patient
-from app.modules.module_1.implementations import Inpatient, Outpatient, EmergencyPatient
+from base import Patient
+from implementations import Inpatient, Outpatient, EmergencyPatient
 
 
 class PatientRepository:
