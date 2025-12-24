@@ -1,7 +1,6 @@
-# app/modules/laboratory/implementations.py
 """
 Laboratuvar & Tetkik Modülü - Implementation Katmanı
-Bu dosya entities, models ve service katmanlarını içerir.
+Bu dosya entities, models ve service katmanlarını içericek.
 """
 
 from dataclasses import dataclass, field
@@ -11,7 +10,7 @@ from enum import Enum
 import random
 
 # Base sınıfımızdan import
-from .base import LabTest, LabHata, StatüHatası
+from base import LabTest, LabHata, StatüHatası
 
 # PART 1: SUBCLASS'LAR (Base Class'tan Türetilmiş)
 
@@ -289,10 +288,7 @@ class BiopsyTest(LabTest):
         
         return len(testler) > 0, testler
 
-
-# ============================================================================
-# PART 2: ENTITIES / MODELS
-# ============================================================================
+# PART 2
 
 @dataclass
 class LabNumune:

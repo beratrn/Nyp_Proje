@@ -1,4 +1,3 @@
-# app/modules/laboratory/base.py
 from abc import ABC, abstractmethod
 from datetime import datetime
 import uuid
