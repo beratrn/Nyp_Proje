@@ -1,0 +1,29 @@
+{
+  "F001": {
+    "appointment_id": "F001",
+    "patient_id": "P700",
+    "doctor_name": "Dr. Rana Öz",
+    "date_time": "2025-12-27T16:23:39.626914",
+    "status": "scheduled",
+    "notes": "",
+    "type": "RoutineAppointment"
+  },
+  "F002": {
+    "appointment_id": "F002",
+    "patient_id": "P701",
+    "doctor_name": "Dr. Sinan Er",
+    "date_time": "2025-12-23T21:23:39.626914",
+    "status": "scheduled",
+    "notes": "",
+    "type": "EmergencyAppointment"
+  },
+  "F003": {
+    "appointment_id": "F003",
+    "patient_id": "P702",
+    "doctor_name": "Dr. Tuba Ak",
+    "date_time": "2025-12-29T16:23:39.626914",
+    "status": "scheduled",
+    "notes": "",
+    "type": "OnlineAppointment"
+  }
+}
